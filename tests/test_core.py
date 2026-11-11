@@ -108,7 +108,7 @@ class PrinterTests(unittest.TestCase):
 
     def test_exact_payload(self):
         data = build_tspl("01025:65874")
-        self.assertEqual(data, b'SIZE 50 mm,30 mm\r\nGAP 2 mm,0 mm\r\nDIRECTION 1\r\nREFERENCE 0,0\r\nCLS\r\nTEXT 30,30,"3",0,1,1,"01025:65874"\r\nPRINT 1,1\r\n')
+        self.assertEqual(data, b'SIZE 25 mm,12 mm\r\nGAP 3 mm,0 mm\r\nDIRECTION 0,0\r\nREFERENCE 0,0\r\nSHIFT 0,0\r\nOFFSET 0 mm\r\nCLS\r\nTEXT 34,38,"2",0,1,1,"01025:65874"\r\nPRINT 1,1\r\n')
 
     def test_config_validation(self):
         for label in (LabelConfig(width_mm=0), LabelConfig(gap_mm=-1), LabelConfig(width_mm=float("nan")),

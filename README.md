@@ -11,13 +11,13 @@ para funcionar.** También permite escribir o pegar un código sin lector conect
 
 ## Instalar en Windows desde el escritorio
 
-La compilación de GitHub genera **TarjetasYEtiquetas-Setup-1.0.0.exe** para
+La compilación de GitHub genera **TarjetasYEtiquetas-Setup-1.1.0.exe** para
 Windows 10/11 de 64 bits. No se necesita instalar Python en la computadora de uso.
 
 1. Abrir la ejecución exitosa **Instalador Windows** en la pestaña **Actions**
    del repositorio y descargar el artefacto **Tarjetas-y-Etiquetas-Windows-x64**.
    Es necesario iniciar sesión en GitHub para descargar los artefactos.
-2. Extraer el ZIP y abrir `TarjetasYEtiquetas-Setup-1.0.0.exe`.
+2. Extraer el ZIP y abrir `TarjetasYEtiquetas-Setup-1.1.0.exe`.
 3. Aceptar la solicitud de administrador para instalar en
    `C:\Program Files\Tarjetas y Etiquetas` (si Windows está en C).
 4. Dejar seleccionada **Crear un acceso directo en el escritorio** y finalizar.
@@ -148,28 +148,55 @@ Windows puede mantener una cola disponible con USB desconectado. Se rechazan
 estados de error conocidos; revisar la cola y la impresora antes de reintentar
 para evitar duplicados. No hay reintentos automáticos.
 
-### Etiqueta configurable
+### Configurar etiqueta y corregir texto cortado / saltos
 
-En `config.py`, editar `LABEL`: ancho, alto y gap en mm; X/Y en puntos;
-fuente bitmap TSPL de `1` a `8`; escalas horizontal/vertical entre `1` y `10`.
-Los valores iniciales son 50×30 mm, gap 2 mm, posición 30/30. La TE200 es de
-203 dpi. Verificar que el texto quepa en el material, especialmente con códigos
-largos o escalas grandes. La vista previa representa contenido, no una imagen
-a escala de la etiqueta.
+En el ejecutable, pulsar **Configurar etiqueta**. No hace falta editar Python
+ni reinstalar para cambiar las medidas. Indicar:
 
-Ejemplo de comandos para la llave confirmada:
+La versión 1.1.0 parte del rollo confirmado por el usuario: **25 mm de ancho ×
+12 mm de alto, separación de 3 mm, TE200 a 203 dpi**. Usa fuente 2, escala 1×1
+y posición X=34, Y=38 puntos para centrar el código habitual de 11 caracteres.
+Esos valores se pueden ajustar si cambia el rollo.
 
-```text
-SIZE 50 mm,30 mm
-GAP 2 mm,0 mm
-DIRECTION 1
-REFERENCE 0,0
-CLS
-TEXT 30,30,"3",0,1,1,"47890:09366"
-PRINT 1,1
-```
+- **Ancho** del adhesivo de izquierda a derecha, en mm (sin el soporte).
+- **Alto** del adhesivo en el sentido de avance del rollo, sin la separación.
+- **Separación / GAP** entre dos adhesivos, en mm.
+- **Resolución** real del equipo: la TE200 usa **203 dpi**, equivalentes a
+  8 puntos por mm. Los equipos de 300 dpi usan 12 puntos por mm.
+- **Posición X/Y** en puntos desde el origen del texto; fuente y escalas.
+- **Orientación**: `0` normal (predeterminada), `1` invertida.
 
-Se envían con CRLF, sin `END` porque no se declara un programa BASIC.
+Los ajustes se guardan por usuario en
+`%LOCALAPPDATA%\TarjetasYEtiquetas\label.json`, fuera de Program Files. Se
+conservan al cerrar y al actualizar el programa; no requieren administrador.
+Se admiten coma o punto decimal en las medidas. Un archivo inválido se informa
+y se reemplaza solo al guardar nuevos valores válidos desde el diálogo.
+
+Antes de imprimir, la aplicación estima el tamaño del texto con las fuentes
+bitmap TSPL2. Si queda fuera del ancho o alto configurados, cancela el envío
+y pide reducir fuente/escala o ajustar posición/medidas. No recorta ni omite
+el Site Code para hacerlo caber. La vista previa principal sigue mostrando
+el contenido textual, no un plano a escala.
+
+Cada trabajo envía las medidas elegidas, orientación sin espejo, origen 0,0,
+SHIFT 0,0 y OFFSET 0, para evitar heredar desplazamientos del trabajo anterior.
+Se envía una sola etiqueta mediante `PRINT 1,1`, con CRLF y sin `END` porque
+no se está declarando un programa BASIC. El driver no corrige las dimensiones
+del TSPL RAW: las medidas de este diálogo deben coincidir con el rollo.
+
+Si aparecen etiquetas en blanco entre impresiones:
+
+1. Medir el adhesivo y el espacio por separado y corregir los ajustes.
+2. En la utilidad de TSC, seleccionar el sensor **GAP** y calibrarlo para ese
+   rollo. La calibración puede avanzar varias etiquetas; no se ejecuta
+   automáticamente en cada impresión.
+3. Pulsar **FEED** en la impresora: debe avanzar una etiqueta y detenerse en
+   la separación. Si también salta etiquetas, revisar calibración, guías y sensor.
+4. Probar una sola impresión y ajustar X/Y si hace falta. No aumentar el alto
+   para corregir una posición desplazada.
+
+La validación de software no puede detectar un rollo de otras medidas ni una
+calibración incorrecta; la comprobación física sigue siendo necesaria.
 
 ## Adaptadores avanzados y diagnóstico opcional
 
@@ -245,8 +272,9 @@ python -m venv .venv
 
 El resultado queda en `dist/installer/`. La carpeta de distribución está en
 `dist/TarjetasYEtiquetas/`. `APP_VERSION` en `config.py` determina la versión.
-La configuración Python se integra en el bundle; editar `config.py` requiere
-recompilar. Las opciones habituales de lectura e impresora se eligen en la GUI.
+Los valores predeterminados de Python se integran en el bundle; editar
+`config.py` requiere recompilar. Los ajustes de etiqueta se editan y guardan
+desde la GUI sin recompilar.
 
 El workflow comprueba sintaxis y pruebas en Windows, compila con PyInstaller,
 genera el instalador con Inno Setup, lo instala en una carpeta temporal y

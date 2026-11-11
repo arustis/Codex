@@ -1,8 +1,7 @@
 """TSPL puro y envío RAW a la cola de Windows, sin rasterizar ni reformatear."""
-import math
 import sys
 
-from config import LABEL, LabelConfig
+from config import LABEL, LabelConfig, validate_label
 from reader import parse_card
 
 
@@ -10,22 +9,24 @@ class PrinterError(Exception):
     pass
 
 
+def validate_layout(text: str, label: LabelConfig) -> None:
+    parse_card(text)
+    validate_label(label)
+    # Dimensiones de las fuentes bitmap TSPL2 en puntos.
+    fonts = {"1": (8, 12), "2": (12, 20), "3": (16, 24), "4": (24, 32),
+             "5": (32, 48), "6": (14, 19), "7": (21, 27), "8": (14, 25)}
+    char_width, char_height = fonts[label.font]
+    dots_per_mm = 8 if label.dpi == 203 else 12
+    if (label.x + len(text) * char_width * label.scale_x > int(label.width_mm * dots_per_mm)
+            or label.y + char_height * label.scale_y > int(label.height_mm * dots_per_mm)):
+        raise ValueError("El texto no cabe en la etiqueta. Reducí fuente/escala o X/Y y revisá ancho/alto en Configurar etiqueta.")
+
+
 def build_tspl(text: str, label: LabelConfig = LABEL) -> bytes:
-    parse_card(text)  # También impide inyectar comandos TSPL.
-    for value in (label.width_mm, label.height_mm, label.gap_mm):
-        if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value):
-            raise ValueError("Las medidas de etiqueta deben ser números finitos.")
-    if label.width_mm <= 0 or label.height_mm <= 0 or label.gap_mm < 0:
-        raise ValueError("Ancho/alto deben ser positivos y gap no negativo.")
-    if label.font not in tuple(str(i) for i in range(1, 9)):
-        raise ValueError("Elegí una fuente bitmap TSPL del 1 al 8.")
-    if any(type(v) is not int or v < 0 for v in (label.x, label.y)):
-        raise ValueError("X e Y deben ser enteros no negativos.")
-    if any(type(v) is not int or not 1 <= v <= 10 for v in (label.scale_x, label.scale_y)):
-        raise ValueError("Las escalas deben ser enteros entre 1 y 10.")
+    validate_layout(text, label)  # También impide inyectar comandos TSPL.
     return (f"SIZE {label.width_mm:g} mm,{label.height_mm:g} mm\r\n"
             f"GAP {label.gap_mm:g} mm,0 mm\r\n"
-            "DIRECTION 1\r\nREFERENCE 0,0\r\nCLS\r\n"
+            f"DIRECTION {label.direction},0\r\nREFERENCE 0,0\r\nSHIFT 0,0\r\nOFFSET 0 mm\r\nCLS\r\n"
             f'TEXT {label.x},{label.y},"{label.font}",0,{label.scale_x},{label.scale_y},"{text}"\r\n'
             "PRINT 1,1\r\n").encode("ascii")
 

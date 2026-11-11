@@ -19,6 +19,13 @@ def self_test():
     root.update()
     if (app.hexadecimal.get(), app.preview.get()) != ("BB122496", "47890:09366"):
         raise RuntimeError("La conversion no coincide en el ejecutable instalado.")
+    root.deiconify()
+    root.update()
+    app.configure_label()
+    root.update()
+    for window in root.winfo_children():
+        if isinstance(window, tk.Toplevel):
+            window.destroy()
     app.close()
 
 

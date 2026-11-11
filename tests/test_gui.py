@@ -2,10 +2,12 @@
 import queue
 import tkinter as tk
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from gui import Application
+from config import LABEL
 
 
 class GuiTests(unittest.TestCase):
@@ -15,7 +17,7 @@ class GuiTests(unittest.TestCase):
             raw=tk.StringVar(self.tcl), hexadecimal=tk.StringVar(self.tcl), site=tk.StringVar(self.tcl),
             card=tk.StringVar(self.tcl), preview=tk.StringVar(self.tcl),
             message=tk.StringVar(self.tcl), printer_status=tk.StringVar(self.tcl),
-            printer_name=tk.StringVar(self.tcl), busy=False, closed=False,
+            printer_name=tk.StringVar(self.tcl), label=LABEL, busy=False, closed=False,
             input=Mock(), print_button=Mock(), events=queue.Queue(),
             root=Mock(), poll=Mock(), printers={}, reader=None)
         self.app.raw.trace_add("write", lambda *_: Application.update_preview(self.app))
@@ -75,8 +77,28 @@ class GuiTests(unittest.TestCase):
         with patch("gui.threading.Thread") as thread, patch("gui.print_label", return_value=12) as send:
             thread.side_effect = lambda **kwargs: SimpleNamespace(start=kwargs["target"])
             Application.print_current(self.app)
-        send.assert_called_once_with("47890:09366", "TSC TE200")
+        send.assert_called_once_with("47890:09366", "TSC TE200", LABEL)
         self.assertIn("47890:09366", self.app.events.get_nowait()[1])
+
+    def test_oversized_text_is_rejected_in_gui_without_starting_job(self):
+        self.app.raw.set("2518946491")
+        self.app.printer_name.set("TSC TE200")
+        self.app.label = replace(LABEL, width_mm=10)
+        with patch("gui.print_label") as send, patch("gui.threading.Thread") as thread:
+            Application.print_current(self.app)
+        send.assert_not_called()
+        thread.assert_not_called()
+        self.assertFalse(self.app.busy)
+        self.assertIn("no cabe", self.app.message.get())
+
+    def test_selected_stock_is_passed_to_spooler(self):
+        self.app.raw.set("2518946491")
+        self.app.printer_name.set("TSC TE200")
+        self.app.label = replace(LABEL, width_mm=30, height_mm=15, gap_mm=3, x=16, y=16, font="2")
+        with patch("gui.threading.Thread") as thread, patch("gui.print_label", return_value=12) as send:
+            thread.side_effect = lambda **kwargs: SimpleNamespace(start=kwargs["target"])
+            Application.print_current(self.app)
+        send.assert_called_once_with("47890:09366", "TSC TE200", self.app.label)
 
 
 if __name__ == "__main__":
