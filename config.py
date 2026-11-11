@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 
 APP_NAME = "Tarjetas y Etiquetas"
+APP_VERSION = "1.0.0"
 
 
 @dataclass(frozen=True)

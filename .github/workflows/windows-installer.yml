@@ -1,0 +1,55 @@
+name: Instalador Windows
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+      - name: Instalar dependencias de compilacion
+        run: python -m pip install -r requirements-build.txt
+      - name: Verificar sintaxis y pruebas
+        shell: pwsh
+        run: |
+          python -m compileall -q main.py gui.py reader.py printer.py config.py tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preparar Inno Setup
+        shell: pwsh
+        run: |
+          if (!(Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Generar ejecutable e instalador
+        shell: pwsh
+        run: ./scripts/build_windows.ps1
+      - name: Verificar instalacion y acceso directo
+        shell: pwsh
+        run: ./scripts/verify_windows.ps1
+      - name: Publicar instalador descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tarjetas-y-Etiquetas-Windows-x64
+          path: dist/installer/*.exe
+          if-no-files-found: error
+          retention-days: 90

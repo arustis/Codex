@@ -9,7 +9,31 @@ una TSC TE200.
 **La aplicación ya no busca el USB, no pide VID/PID ni necesita detectar el lector
 para funcionar.** También permite escribir o pegar un código sin lector conectado.
 
-## Instalar y ejecutar
+## Instalar en Windows desde el escritorio
+
+La compilación de GitHub genera **TarjetasYEtiquetas-Setup-1.0.0.exe** para
+Windows 10/11 de 64 bits. No se necesita instalar Python en la computadora de uso.
+
+1. Abrir la ejecución exitosa **Instalador Windows** en la pestaña **Actions**
+   del repositorio y descargar el artefacto **Tarjetas-y-Etiquetas-Windows-x64**.
+   Es necesario iniciar sesión en GitHub para descargar los artefactos.
+2. Extraer el ZIP y abrir `TarjetasYEtiquetas-Setup-1.0.0.exe`.
+3. Aceptar la solicitud de administrador para instalar en
+   `C:\Program Files\Tarjetas y Etiquetas` (si Windows está en C).
+4. Dejar seleccionada **Crear un acceso directo en el escritorio** y finalizar.
+5. Abrir **Tarjetas y Etiquetas** desde el escritorio con doble clic. No aparece
+   una consola y no se necesitan Python, PowerShell ni archivos del proyecto.
+
+El instalador incluye el ejecutable y sus dependencias. No mover únicamente
+el `.exe` fuera de su carpeta instalada. Para quitarlo, usar **Configuración >
+Aplicaciones > Tarjetas y Etiquetas > Desinstalar**. La aplicación se ejecuta
+como usuario normal; solo el instalador requiere permisos de administrador.
+El driver de la impresora se instala por separado cuando se pase a impresión.
+
+El instalador aún no tiene firma digital: Windows puede indicar editor
+desconocido. Usar el artefacto de la ejecución correspondiente al commit del PR.
+
+## Ejecutar desde el código fuente (desarrollo)
 
 Descargar el repositorio completo desde **Code > Download ZIP** y extraerlo.
 Abrir PowerShell en la carpeta que contiene `main.py`, `config.py` y
@@ -200,3 +224,32 @@ Fuentes de los dispositivos:
 [manuales TSPL](https://apac.tscprinters.com/en/downloads).
 La ficha USB del ASM100 no especifica su protocolo; la entrada por teclado y
 la conversión descritas aquí se basan en la prueba y el ejemplo del usuario.
+
+## Generar el instalador (desarrollo)
+
+PyInstaller debe compilar en Windows x64; no se genera un ejecutable Windows
+con PyInstaller desde Linux. El workflow `.github/workflows/windows-installer.yml`
+se ejecuta en cada PR hacia `main`, al actualizar `main` y manualmente desde
+Actions una vez que el workflow está en la rama predeterminada. Publica el
+instalador como artefacto durante 90 días; descargarlo y conservarlo antes de
+su vencimiento. No crea una release ni cambia `main` automáticamente.
+
+Para compilar localmente en Windows, instalar Inno Setup 6 y ejecutar desde
+la raíz del repositorio:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+.\scripts\build_windows.ps1 -PythonExe .\.venv\Scripts\python.exe
+```
+
+El resultado queda en `dist/installer/`. La carpeta de distribución está en
+`dist/TarjetasYEtiquetas/`. `APP_VERSION` en `config.py` determina la versión.
+La configuración Python se integra en el bundle; editar `config.py` requiere
+recompilar. Las opciones habituales de lectura e impresora se eligen en la GUI.
+
+El workflow comprueba sintaxis y pruebas en Windows, compila con PyInstaller,
+genera el instalador con Inno Setup, lo instala en una carpeta temporal y
+comprueba el acceso directo. Luego ejecuta el binario instalado con una opción
+interna de autoprueba para verificar Tkinter, extensiones y conversión del UID
+sin enviar trabajos a la impresora. Esto no sustituye la prueba física de la TE200.
