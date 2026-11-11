@@ -4,9 +4,9 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from config import PRINTER_NAME, READER
+from config import APP_NAME, PRINTER_NAME, READER
 from printer import list_printers, print_label
-from reader import Reader, decode_card
+from reader import Reader, decode_card, uid_hex
 
 
 class Application(ttk.Frame):
@@ -19,6 +19,7 @@ class Application(ttk.Frame):
         self.busy = False
         self.closed = False
         self.raw = tk.StringVar()
+        self.hexadecimal = tk.StringVar()
         self.site = tk.StringVar()
         self.card = tk.StringVar()
         self.preview = tk.StringVar()
@@ -29,8 +30,8 @@ class Application(ttk.Frame):
         self.manual = tk.BooleanVar(value=manual or reader_config.mode == "manual")
         self.grid(sticky="nsew")
         self.columnconfigure(1, weight=1)
-        root.title("Tarjetas · Dahua ASM100 / TSC TE200")
-        root.minsize(650, 430)
+        root.title(APP_NAME)
+        root.minsize(650, 470)
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
         ttk.Label(self, text="Entrada de tarjetas").grid(row=0, column=0, sticky="w")
@@ -41,25 +42,26 @@ class Application(ttk.Frame):
         self.input.bind("<Return>", self.accept_input)
         self.input.bind("<KP_Enter>", self.accept_input)
         self.input.bind("<Tab>", self.accept_input)
-        for row, label, variable in ((3, "Site Code", self.site), (4, "Card Code", self.card),
-                                      (5, "Vista previa", self.preview)):
+        for row, label, variable in ((3, "Hexadecimal (UID)", self.hexadecimal),
+                                      (4, "Site Code", self.site), (5, "Card Code", self.card),
+                                      (6, "Vista previa", self.preview)):
             ttk.Label(self, text=label).grid(row=row, column=0, sticky="w", pady=6)
             ttk.Entry(self, textvariable=variable, state="readonly").grid(row=row, column=1, sticky="ew")
-        ttk.Label(self, text="Impresora Windows").grid(row=6, column=0, sticky="w", pady=10)
+        ttk.Label(self, text="Impresora de etiquetas").grid(row=7, column=0, sticky="w", pady=10)
         self.printers = ttk.Combobox(self, textvariable=self.printer_name, state="readonly")
-        self.printers.grid(row=6, column=1, sticky="ew")
+        self.printers.grid(row=7, column=1, sticky="ew")
         actions = ttk.Frame(self)
-        ttk.Label(self, text="Estado impresora").grid(row=7, column=0, sticky="w")
-        ttk.Label(self, textvariable=self.printer_status, wraplength=460).grid(row=7, column=1, sticky="w")
-        actions.grid(row=8, column=0, columnspan=2, sticky="w", pady=10)
+        ttk.Label(self, text="Estado impresora").grid(row=8, column=0, sticky="w")
+        ttk.Label(self, textvariable=self.printer_status, wraplength=460).grid(row=8, column=1, sticky="w")
+        actions.grid(row=9, column=0, columnspan=2, sticky="w", pady=10)
         self.print_button = ttk.Button(actions, text="Imprimir", command=self.print_current)
         self.print_button.pack(side="left", padx=(0, 8))
         ttk.Button(actions, text="Limpiar", command=self.clear).pack(side="left", padx=8)
         ttk.Button(actions, text="Actualizar impresoras", command=self.refresh_printers).pack(side="left", padx=8)
         ttk.Button(actions, text="Preparar lectura", command=self.prepare_input).pack(side="left", padx=8)
-        ttk.Label(self, textvariable=self.message, wraplength=600).grid(row=9, column=0, columnspan=2, sticky="w", pady=10)
+        ttk.Label(self, textvariable=self.message, wraplength=600).grid(row=10, column=0, columnspan=2, sticky="w", pady=10)
         ttk.Label(self, text="Mantené esta ventana activa y el campo de lectura enfocado. También podés escribir o pegar un valor.",
-                  wraplength=600).grid(row=10, column=0, columnspan=2, sticky="w")
+                  wraplength=600).grid(row=11, column=0, columnspan=2, sticky="w")
         self.raw.trace_add("write", self.update_preview)
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.restart_reader()
@@ -70,11 +72,14 @@ class Application(ttk.Frame):
     def update_preview(self, *_):
         try:
             site, card = decode_card(self.raw.get())
+            hexadecimal = uid_hex(self.raw.get())
         except ValueError as exc:
             site = card = ""
+            hexadecimal = ""
             if not self.busy and self.raw.get():
                 self.message.set(str(exc))
         self.site.set(site)
+        self.hexadecimal.set(hexadecimal)
         self.card.set(card)
         self.preview.set(f"{site}:{card}" if site else "")
         if not self.busy:
@@ -185,7 +190,7 @@ class Application(ttk.Frame):
                     if not names:
                         self.printer_status.set("Sin impresoras instaladas. Podés seguir probando la lectura.")
                     else:
-                        self.printer_status.set("Elegí la cola TSC TE200 cuando quieras imprimir.")
+                        self.printer_status.set("Elegí una impresora de etiquetas compatible con TSPL para imprimir.")
                 elif event[0] == "printer_status":
                     self.printer_status.set(event[1])
                 elif event[0] == "printed":

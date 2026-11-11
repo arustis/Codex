@@ -1,7 +1,11 @@
-# Tarjetas Dahua ASM100 y etiquetas TSC TE200
+# Tarjetas y Etiquetas
 
-Aplicación de escritorio Python/Tkinter para Windows. El lector utilizado se
-comporta como teclado: al escanear escribe en **Lectura / valor manual**.
+Aplicación de escritorio Python/Tkinter para Windows para leer tarjetas e imprimir
+etiquetas. Admite lectores que escriben como teclado en **Lectura / valor manual**
+e impresoras de etiquetas compatibles con TSPL instaladas en Windows. No depende
+de una marca de lector; la conversión de UID debe coincidir con la configuración
+del equipo. El lector probado es un Dahua ASM100; la impresión prevista utiliza
+una TSC TE200.
 **La aplicación ya no busca el USB, no pide VID/PID ni necesita detectar el lector
 para funcionar.** También permite escribir o pegar un código sin lector conectado.
 
@@ -65,6 +69,19 @@ La captura es local a la ventana: no recibe lecturas mientras otra aplicación
 tiene el foco. El estado **Entrada por teclado habilitada** indica que la
 captura está preparada, no que se haya comprobado una conexión USB física.
 
+### Hexadecimal del UID
+
+Debajo de la lectura se muestra **Hexadecimal (UID)**, un campo de solo lectura
+que se actualiza automáticamente. Usa los cuatro bytes en el mismo orden de
+la conversión Site/Card, concatenados, en mayúsculas y sin espacios ni `0x`.
+Por ejemplo, `2518946491` muestra **`BB122496`** y `1` muestra **`01000000`**.
+Se conservan los ocho dígitos, incluidos los ceros.
+
+Si se ingresa directamente `Site:Card`, no se dispone del UID original y el
+campo hexadecimal queda vacío. También se vacía al limpiar o recibir un dato
+inválido. El hexadecimal es informativo: la etiqueta sigue conteniendo solo
+el texto de la vista previa, como `47890:09366`.
+
 ## Probar sin impresora
 
 Abrir la aplicación y escanear o pegar `2518946491`. Debe mostrar
@@ -76,15 +93,20 @@ No hace falta conectar la TE200 ni pulsar Imprimir para esta prueba.
 aunque en el modo teclado predeterminado no se requiere seleccionar un modo
 manual especial para escribir o pegar.
 
-## Seleccionar la TSC TE200 e imprimir
+## Seleccionar una impresora de etiquetas e imprimir
 
-1. Instalar su driver oficial en Windows y conectar la impresora por USB.
-2. Configurar/calibrar papel, gap y ribbon con la utilidad de TSC según el material.
-3. Pulsar **Actualizar impresoras** y seleccionar la cola **TSC TE200**. Si hay
+1. Instalar el driver oficial de una impresora compatible con TSPL en Windows
+   y conectar la impresora (por ejemplo, una TSC TE200 por USB).
+2. Configurar/calibrar papel, gap y ribbon con la utilidad del fabricante según el material.
+3. Pulsar **Actualizar impresoras** y seleccionar su cola de Windows. Si hay
    una única cola con `TE200` en su nombre, se preselecciona. Opcionalmente fijar
    su nombre exacto en `PRINTER_NAME` de `config.py`.
 4. Leer una llave o pegar un valor manual. Revisar la vista previa y pulsar
    **Imprimir**: la etiqueta contiene únicamente el texto de la vista previa.
+
+El nombre de la cola puede ser cualquiera. El envío RAW requiere que la
+impresora entienda TSPL; instalar un driver no agrega ese lenguaje a modelos
+que no lo admiten.
 
 Para listar las colas sin abrir la interfaz:
 

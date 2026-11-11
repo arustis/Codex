@@ -1,9 +1,10 @@
 """Inicio GUI y diagnóstico sin impresión."""
 import argparse
 import json
+from config import APP_NAME
 
 def main():
-    parser = argparse.ArgumentParser(description="Lectura de tarjetas y etiquetas TSPL")
+    parser = argparse.ArgumentParser(description=f"{APP_NAME}: lectura de tarjetas e impresión de etiquetas TSPL")
     parser.add_argument("--diagnose", action="store_true", help="Listar HID y COM sin abrirlos")
     parser.add_argument("--manual", action="store_true", help="Iniciar sin lector")
     parser.add_argument("--list-printers", action="store_true", help="Listar las colas Windows")

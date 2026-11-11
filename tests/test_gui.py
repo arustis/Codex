@@ -12,7 +12,7 @@ class GuiTests(unittest.TestCase):
     def setUp(self):
         self.tcl = tk.Tcl()
         self.app = SimpleNamespace(
-            raw=tk.StringVar(self.tcl), site=tk.StringVar(self.tcl),
+            raw=tk.StringVar(self.tcl), hexadecimal=tk.StringVar(self.tcl), site=tk.StringVar(self.tcl),
             card=tk.StringVar(self.tcl), preview=tk.StringVar(self.tcl),
             message=tk.StringVar(self.tcl), printer_status=tk.StringVar(self.tcl),
             printer_name=tk.StringVar(self.tcl), busy=False, closed=False,
@@ -23,6 +23,7 @@ class GuiTests(unittest.TestCase):
     def test_scan_updates_fields_without_enter_or_printer(self):
         self.app.raw.set("2518946491")
         self.assertEqual(self.app.site.get(), "47890")
+        self.assertEqual(self.app.hexadecimal.get(), "BB122496")
         self.assertEqual(self.app.card.get(), "09366")
         self.assertEqual(self.app.preview.get(), "47890:09366")
         self.assertIn("Dato válido", self.app.message.get())
@@ -33,14 +34,28 @@ class GuiTests(unittest.TestCase):
         self.app.input.selection_range.assert_called_with(0, tk.END)
         self.app.raw.set("2519062667")
         self.assertEqual(self.app.preview.get(), "35800:09622")
+        self.assertEqual(self.app.hexadecimal.get(), "8BD82596")
 
     def test_invalid_scan_clears_previous_preview(self):
-        self.app.raw.set("01025:65874")
+        self.app.raw.set("2518946491")
         self.app.raw.set("malformed")
         self.assertEqual(self.app.site.get(), "")
         self.assertEqual(self.app.card.get(), "")
         self.assertEqual(self.app.preview.get(), "")
+        self.assertEqual(self.app.hexadecimal.get(), "")
         self.assertIn("Formato inválido", self.app.message.get())
+
+    def test_clear_removes_hexadecimal_and_codes(self):
+        self.app.raw.set("2518946491")
+        Application.clear(self.app)
+        for field in (self.app.raw, self.app.hexadecimal, self.app.site, self.app.card, self.app.preview):
+            self.assertEqual(field.get(), "")
+
+    def test_formatted_value_does_not_reuse_previous_uid_hex(self):
+        self.app.raw.set("2518946491")
+        self.app.raw.set("01025:65874")
+        self.assertEqual(self.app.hexadecimal.get(), "")
+        self.assertEqual(self.app.preview.get(), "01025:65874")
 
     def test_missing_printer_does_not_hide_valid_reading(self):
         self.app.raw.set("2518946491")

@@ -4,10 +4,19 @@ from unittest.mock import Mock
 
 from config import LabelConfig, ReaderConfig
 from printer import PrinterError, build_tspl, print_label
-from reader import ReaderError, TextFrames, decode_card, parse_card, select_reader
+from reader import ReaderError, TextFrames, decode_card, parse_card, select_reader, uid_hex
 
 
 class CardTests(unittest.TestCase):
+    def test_hex_uid_is_concatenated_and_retains_all_four_bytes(self):
+        for value, expected in (("2518946491", "BB122496"), ("2519062667", "8BD82596"),
+                                ("0", "00000000"), ("1", "01000000"),
+                                ("4294967295", "FFFFFFFF"), ("01025:65874", "")):
+            self.assertEqual(uid_hex(value), expected)
+        for value in ("4294967296", "invalid", "1:2:3"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                uid_hex(value)
+
     def test_decimal_uid_confirmed_by_user(self):
         self.assertEqual(decode_card("2518946491"), ("47890", "09366"))
         self.assertIn(b'"47890:09366"', build_tspl(":".join(decode_card("2518946491"))))

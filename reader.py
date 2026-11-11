@@ -37,6 +37,17 @@ def decode_card(value: str) -> tuple[str, str]:
     return parse_card(value)
 
 
+def uid_hex(value: str) -> str:
+    """Hexadecimal del UID en el orden usado para Site/Card, sin separadores.
+
+    Site:Card no contiene el UID original; en ese caso no se muestra hexadecimal.
+    """
+    decode_card(value)
+    if ":" in value:
+        return ""
+    return int(value).to_bytes(4, byteorder="little").hex().upper()
+
+
 class TextFrames:
     """Tramas ASCII CR/LF; descarta una trama completa si excede el límite."""
     def __init__(self, limit=128):

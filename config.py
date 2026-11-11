@@ -1,6 +1,8 @@
 """Configuración local. Reiniciar la aplicación después de editarla."""
 from dataclasses import dataclass
 
+APP_NAME = "Tarjetas y Etiquetas"
+
 
 @dataclass(frozen=True)
 class ReaderConfig:
