@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ReaderConfig:
-    mode: str = "auto"  # auto, keyboard, serial, hid_text, sdk, manual
+    mode: str = "keyboard"  # keyboard no busca USB. Otros: auto, serial, hid_text, sdk, manual
     vendor_id: int | None = None  # Obtener con python main.py --diagnose
     product_id: int | None = None
     serial_number: str | None = None

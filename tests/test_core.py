@@ -4,10 +4,30 @@ from unittest.mock import Mock
 
 from config import LabelConfig, ReaderConfig
 from printer import PrinterError, build_tspl, print_label
-from reader import ReaderError, TextFrames, parse_card, select_reader
+from reader import ReaderError, TextFrames, decode_card, parse_card, select_reader
 
 
 class CardTests(unittest.TestCase):
+    def test_decimal_uid_confirmed_by_user(self):
+        self.assertEqual(decode_card("2518946491"), ("47890", "09366"))
+        self.assertIn(b'"47890:09366"', build_tspl(":".join(decode_card("2518946491"))))
+
+    def test_decimal_uid_from_screenshot(self):
+        self.assertEqual(decode_card("2519062667"), ("35800", "09622"))
+
+    def test_decimal_uid_bounds_and_padding(self):
+        for value, expected in (("0", ("00000", "00000")), ("1", ("00256", "00000")),
+                                ("0000000001", ("00256", "00000")),
+                                ("4294967295", ("65535", "65535"))):
+            self.assertEqual(decode_card(value), expected)
+        for value in ("4294967296", "9999999999", "00000000000", "-1", " 2518946491", "BB122496", "١٢٣"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                decode_card(value)
+
+    def test_formatted_codes_are_never_reinterpreted(self):
+        self.assertEqual(decode_card("01025:65874"), ("01025", "65874"))
+        self.assertEqual(decode_card("00001:0000002"), ("00001", "0000002"))
+
     def test_preserves_zeros(self):
         self.assertEqual(parse_card("01025:65874"), ("01025", "65874"))
         self.assertEqual(parse_card("000:000"), ("000", "000"))
@@ -36,7 +56,7 @@ class CardTests(unittest.TestCase):
 
 class DetectionTests(unittest.TestCase):
     def setUp(self):
-        self.cfg = ReaderConfig(vendor_id=123, product_id=456)
+        self.cfg = ReaderConfig(mode="auto", vendor_id=123, product_id=456)
         self.device = dict(vendor_id=123, product_id=456, usage_page=1, usage=6)
         self.inventory = dict(hid=[self.device], serial=[], errors=[])
 
@@ -49,7 +69,7 @@ class DetectionTests(unittest.TestCase):
 
     def test_no_guessed_identity(self):
         with self.assertRaises(ReaderError):
-            select_reader(ReaderConfig(), self.inventory)
+            select_reader(ReaderConfig(mode="auto"), self.inventory)
 
     def test_generic_hid_requires_explicit_protocol(self):
         self.device["usage"] = 1

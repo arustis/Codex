@@ -18,6 +18,25 @@ def parse_card(value: str) -> tuple[str, str]:
     return tuple(value.split(":"))
 
 
+def decode_card(value: str) -> tuple[str, str]:
+    """UID decimal uint32 -> bytes little endian -> dos palabras big endian.
+
+    Ejemplo confirmado: 2518946491 -> BB 12 24 96 -> 47890:09366.
+    Una entrada Site:Card se conserva literalmente, sin convertirla a entero.
+    """
+    if isinstance(value, str) and re.fullmatch(r"[0-9]{1,10}", value):
+        number = int(value)
+        if number > 0xFFFFFFFF:
+            raise ValueError("El código decimal debe estar entre 0 y 4294967295 (UID de 32 bits).")
+        uid = number.to_bytes(4, byteorder="little")
+        site = int.from_bytes(uid[:2], byteorder="big")
+        card = int.from_bytes(uid[2:], byteorder="big")
+        return f"{site:05d}", f"{card:05d}"
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value):
+        raise ValueError("El código decimal admite hasta 10 dígitos y un máximo de 4294967295.")
+    return parse_card(value)
+
+
 class TextFrames:
     """Tramas ASCII CR/LF; descarta una trama completa si excede el límite."""
     def __init__(self, limit=128):
@@ -77,6 +96,8 @@ class Selection:
 
 
 def select_reader(config: ReaderConfig, devices: dict) -> Selection:
+    if config.mode == "keyboard":
+        return Selection("keyboard")
     if config.mode == "manual":
         return Selection("manual")
     if config.mode == "sdk":
@@ -131,22 +152,21 @@ class Reader:
         self.stop_event.set()
 
     def _emit_frame(self, frame):
-        parse_card(frame)
+        decode_card(frame)
         self.callback("card", frame)
 
     def _run(self):
         source = None
         try:
-            selected = select_reader(self.config, inventory())
+            # El modo teclado usa eventos de la ventana: no enumera ni abre USB.
+            devices = {} if self.config.mode in {"keyboard", "manual", "sdk"} else inventory()
+            selected = select_reader(self.config, devices)
             mode = selected.mode
             if mode == "manual":
                 self.callback("status", "Modo manual: lector desactivado.")
                 return
             if mode == "keyboard":
-                self.callback("keyboard", "Interfaz de teclado detectada. Ventana activa y captura enfocada; lectura aún no verificada.")
-                # Revalidar presencia; no confundir un teclado cualquiera con el lector.
-                while not self.stop_event.wait(2):
-                    select_reader(self.config, inventory())
+                self.callback("keyboard", "Entrada por teclado habilitada. Escaneá con el campo de lectura enfocado.")
                 return
             if mode == "serial":
                 import serial
