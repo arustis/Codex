@@ -1,243 +1,283 @@
-# Tarjetas Dahua ASM100 y etiquetas TSC TE200
+# Tarjetas y Etiquetas
 
-Aplicación de escritorio Python/Tkinter para Windows. Mantiene los códigos como
-texto: `01025:65874` se divide en `01025` y `65874`, y la etiqueta contiene
-únicamente `01025:65874`. Nunca se convierte un código a entero. La impresión
-solo ocurre al pulsar **Imprimir**.
+Aplicación de escritorio Python/Tkinter para Windows para leer tarjetas e imprimir
+etiquetas. Admite lectores que escriben como teclado en **Lectura / valor manual**
+e impresoras de etiquetas compatibles con TSPL instaladas en Windows. No depende
+de una marca de lector; la conversión de UID debe coincidir con la configuración
+del equipo. El lector probado es un Dahua ASM100; la impresión prevista utiliza
+una TSC TE200.
+**La aplicación ya no busca el USB, no pide VID/PID ni necesita detectar el lector
+para funcionar.** También permite escribir o pegar un código sin lector conectado.
 
-## Estado y alcance del lector
+## Instalar en Windows desde el escritorio
 
-**La lectura de una unidad ASM100 real necesita verificar su interfaz/protocolo
-en Windows. No se ha probado hardware físico en este entorno.** La aplicación
-incluye diagnóstico, adaptadores y modo manual; no incluye un SDK propietario
-Dahua ni afirma que el ASM100 sea un teclado.
+La compilación de GitHub genera **TarjetasYEtiquetas-Setup-1.1.0.exe** para
+Windows 10/11 de 64 bits. No se necesita instalar Python en la computadora de uso.
 
-Fuentes consultadas el 5 de noviembre de 2026:
+1. Abrir la ejecución exitosa **Instalador Windows** en la pestaña **Actions**
+   del repositorio y descargar el artefacto **Tarjetas-y-Etiquetas-Windows-x64**.
+   Es necesario iniciar sesión en GitHub para descargar los artefactos.
+2. Extraer el ZIP y abrir `TarjetasYEtiquetas-Setup-1.1.0.exe`.
+3. Aceptar la solicitud de administrador para instalar en
+   `C:\Program Files\Tarjetas y Etiquetas` (si Windows está en C).
+4. Dejar seleccionada **Crear un acceso directo en el escritorio** y finalizar.
+5. Abrir **Tarjetas y Etiquetas** desde el escritorio con doble clic. No aparece
+   una consola y no se necesitan Python, PowerShell ni archivos del proyecto.
 
-- [Ficha oficial DHI-ASM100](https://materialfile.dahuasecurity.com/uploads/cpq/prm-os-srv-res/smart/datasheetzipfiles/DHI-ASM100_datasheet_20241101.pdf):
-  USB 2.0, sin instalación de driver, Mifare, integración con SmartPSS-AC/DSS.
-  No identifica clase USB, VID/PID, protocolo ni formato `Site:Card`.
-- [Configuración ASM100 en DahuaWiki](https://dahuawiki.com/Access_Control/How_To_Setup_DHI_ASM100):
-  SmartPSS activa el emisor desde el campo Card No. Esto demuestra integración
-  con su software; no demuestra emulación de teclado ni una API pública.
-- [Manual oficial TE200](https://fs.tscprinters.com/system/files/31-0650003-00_te200_user_manual_en_c.pdf):
-  admite texto y comandos TSPL/TSPL2.
-- [Manuales TSPL/TSPL2 de TSC](https://apac.tscprinters.com/en/downloads).
+El instalador incluye el ejecutable y sus dependencias. No mover únicamente
+el `.exe` fuera de su carpeta instalada. Para quitarlo, usar **Configuración >
+Aplicaciones > Tarjetas y Etiquetas > Desinstalar**. La aplicación se ejecuta
+como usuario normal; solo el instalador requiere permisos de administrador.
+El driver de la impresora se instala por separado cuando se pase a impresión.
 
-El formato de entrada admitido es texto ASCII `números:números`. No se deduce
-Site Code a partir de un UID hexadecimal/decimal ni se presupone un formato
-Wiegand. Si el equipo entrega un UID u otro formato, hace falta conocer su
-regla de conversión; no existe una división universal correcta.
+El instalador aún no tiene firma digital: Windows puede indicar editor
+desconocido. Usar el artefacto de la ejecución correspondiente al commit del PR.
 
-## Instalación en Windows
+## Ejecutar desde el código fuente (desarrollo)
 
-Instalar Python **3.10 o superior**, incluyendo Tcl/Tk y el lanzador `py`.
-Desde PowerShell, en esta carpeta:
+Descargar el repositorio completo desde **Code > Download ZIP** y extraerlo.
+Abrir PowerShell en la carpeta que contiene `main.py`, `config.py` y
+`requirements.txt`. No ejecutar los tests como archivos sueltos desde Downloads.
+
+Instalar Python **3.10 o superior** con Tcl/Tk. Ejecutar:
 
 ```powershell
-py -m venv .venv
+python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe main.py
 ```
 
-No hace falta activar el entorno. Tkinter viene con el instalador de Python;
-`pywin32` permite imprimir; `hidapi` enumera HID y permite leer HID genérico;
-`pyserial` enumera y lee puertos COM. No instalar un paquete llamado `hid`
-además de `hidapi`: pueden interferir entre sí.
+Tkinter viene con Python para Windows. `pywin32` envía etiquetas a la cola de
+Windows. `hidapi` y `pyserial` se utilizan solo para diagnóstico o adaptadores
+avanzados; la entrada normal por teclado no los importa ni enumera dispositivos.
+No instalar otro paquete llamado `hid` junto con `hidapi`.
 
-## Detectar el lector antes de configurar la lectura
+## Leer y convertir una llave
 
-1. Con el lector desconectado, ejecutar y guardar visualmente el resultado:
+Mantener la ventana activa y el campo **Lectura / valor manual** enfocado.
+Escanear la llave: Site Code, Card Code y vista previa se actualizan sin pulsar
+Imprimir y sin requerir una impresora. La lectura nunca imprime automáticamente.
 
-   ```powershell
-   .\.venv\Scripts\python.exe main.py --diagnose
-   ```
+Se admiten dos tipos de entrada:
 
-2. Conectarlo y repetir. Comparar las interfaces nuevas. En Administrador de
-   dispositivos, usar **Ver > Dispositivos por conexión** y consultar
-   **Propiedades > Detalles > Id. de hardware** (`VID_xxxx&PID_yyyy`). Si no
-   aparece en HID/COM, consultar también dispositivos USB y tarjetas inteligentes:
-   la enumeración de la aplicación no cubre todas las clases USB.
-3. En `config.py`, poner los IDs **reales**, por ejemplo `vendor_id=0x1234`,
-   `product_id=0x5678` (estos valores son ilustrativos, no corresponden al ASM100).
-   Si hay varios dispositivos iguales, configurar `serial_number`. Si hay varias
-   interfaces HID, configurar `interface_number`. Reiniciar la aplicación.
-4. Elegir el método según evidencia:
+| Entrada | Site Code | Card Code | Vista previa / etiqueta |
+| --- | --- | --- | --- |
+| `2518946491` | `47890` | `09366` | `47890:09366` |
+| `2519062667` | `35800` | `09622` | `35800:09622` |
+| `01025:65874` | `01025` | `65874` | `01025:65874` |
 
-   | Resultado | Método |
-   | --- | --- |
-   | HID con `usage_page=1`, `usage=6`, y escribe el código en Bloc de notas | `keyboard` o `auto` |
-   | Puerto COM coincidente | `serial`, puerto y baudrate confirmados |
-   | HID genérico con protocolo de texto ASCII documentado | `hid_text`, tamaño y offset confirmados |
-   | HID binario, USB propietario u otra clase | Obtener protocolo/SDK Dahua e implementar el puente `sdk` |
+La regla del UID decimal se confirmó con la llave del usuario:
 
-`auto` identifica por VID/PID y serie; elige teclado según uso HID o COM según
-la enumeración. No abre cualquier teclado conectado ni interpreta automáticamente
-HID binario. Con varias interfaces posibles pide configuración explícita.
-Sin VID/PID avisa que el lector no está identificado; el modo manual sigue disponible.
+1. `2518946491` en hexadecimal es `962412BB`.
+2. Recuperar sus cuatro bytes en orden little endian produce `BB 12 24 96`.
+3. Interpretar cada par en big endian: `BB12` = `47890`, `2496` = `9366`.
+4. Completar cada campo a cinco dígitos: **`47890:09366`**.
 
-### Si funciona como teclado HID
+El UID de entrada admite de 1 a 10 dígitos ASCII y valores entre `0` y
+`4294967295`. Esta conversión corresponde a esta configuración del lector;
+no es una regla universal para cualquier UID o formato Wiegand.
 
-Probar primero en Bloc de notas con una tarjeta conocida. Confirmar que entrega
-literalmente `01025:65874` y termina con **Enter** o **Tab**. Verificar también
-la distribución del teclado de Windows: debe producir `:` correctamente.
+Una entrada que ya contiene `Site:Card` se valida como dos grupos de números
+ASCII con exactamente un `:` y **conserva literalmente todos sus ceros**.
+No se convierte ese texto a entero ni se cambia su longitud. La conversión
+numérica solo se aplica a un UID decimal sin `:`. Se rechazan letras, espacios,
+hexadecimal escrito directamente y valores fuera de rango. Una lectura inválida
+vacía los campos y la vista previa para no imprimir la lectura anterior.
 
-En la aplicación, mantener la ventana activa y enfocar **Lectura / valor manual**.
-La secuencia USB entra automáticamente en ese campo, se separa y actualiza la
-vista previa sin tipeo humano. Enter/Tab finalizan la captura y seleccionan el
-texto para que la siguiente tarjeta lo reemplace. **Limpiar**, **Imprimir** y
-**Reconectar lector** devuelven el foco al campo de lectura.
+Enter o Tab finalizan la captura y seleccionan el contenido para reemplazarlo
+con la siguiente llave. Si el lector no envía terminador, usar **Limpiar** o
+**Preparar lectura** antes de otro escaneo. El primer botón vacía el campo;
+el segundo lo enfoca y selecciona sin borrar el dato.
 
-La captura es local a la ventana, sin hooks globales: no recibe tarjetas mientras
-otra aplicación tiene el foco. Los eventos de teclado normales de Tkinter no
-identifican el dispositivo de origen; el teclado humano puede escribir en el
-mismo campo. La presencia se revisa cada dos segundos; no equivale a verificar
-que una tarjeta haya sido leída correctamente. Al reconectar, usar el botón
-**Reconectar lector**.
+La captura es local a la ventana: no recibe lecturas mientras otra aplicación
+tiene el foco. El estado **Entrada por teclado habilitada** indica que la
+captura está preparada, no que se haya comprobado una conexión USB física.
 
-### Serie o HID genérico
+### Hexadecimal del UID
 
-Los adaptadores de texto esperan tramas ASCII con terminador CR, LF o CRLF;
-pueden recibir una trama en varios bloques. Rechazan bytes no ASCII, códigos
-inválidos y tramas de más de `max_frame_length` bytes. Una trama demasiado larga
-se descarta por completo hasta su terminador.
+Debajo de la lectura se muestra **Hexadecimal (UID)**, un campo de solo lectura
+que se actualiza automáticamente. Usa los cuatro bytes en el mismo orden de
+la conversión Site/Card, concatenados, en mayúsculas y sin espacios ni `0x`.
+Por ejemplo, `2518946491` muestra **`BB122496`** y `1` muestra **`01000000`**.
+Se conservan los ocho dígitos, incluidos los ceros.
 
-En serie se abre el COM seleccionado con 8N1 y `baudrate` configurable, lectura
-con timeout de 200 ms. En HID se utiliza `hid_report_size`, se quitan
-`hid_payload_offset` bytes iniciales de cada reporte y relleno NUL final. El
-offset debe incluir report ID si lo hay. **Esto solo sirve si el protocolo real
-es texto con ese encuadre.** No envía comandos de activación ni decodifica UID
-binario. No usar Zadig ni cambiar drivers para probar este adaptador.
+Si se ingresa directamente `Site:Card`, no se dispone del UID original y el
+campo hexadecimal queda vacío. También se vacía al limpiar o recibir un dato
+inválido. El hexadecimal es informativo: la etiqueta sigue conteniendo solo
+el texto de la vista previa, como `47890:09366`.
 
-### Integración de un SDK propietario
+## Probar sin impresora
 
-Si la unidad requiere un SDK, solicitar a Dahua/distribuidor el SDK del emisor
-USB ASM100, sus headers, DLL y ejemplo, compatibles con la arquitectura de
-Python. El NetSDK para controladores de red no debe asumirse compatible con
-este periférico USB.
+Abrir la aplicación y escanear o pegar `2518946491`. Debe mostrar
+**47890**, **09366** y **47890:09366**. Probar también `01025:65874`.
+El estado de impresora se muestra por separado y no tapa el resultado de lectura.
+No hace falta conectar la TE200 ni pulsar Imprimir para esta prueba.
 
-Crear dentro del proyecto un módulo puente, configurar `mode="sdk"` y
-`sdk_module="mi_puente_dahua"`. El contrato **definido por esta aplicación**, no
-una API oficial de Dahua, es:
+`main.py --manual` sigue disponible para desactivar adaptadores avanzados,
+aunque en el modo teclado predeterminado no se requiere seleccionar un modo
+manual especial para escribir o pegar.
 
-```python
-# mi_puente_dahua.py (esquema, no implementación del SDK)
-def open_reader(config):
-    # Inicializar el SDK documentado; devolver un objeto con:
-    # read_card(timeout_ms=200) -> str completa "01025:65874" o None
-    # close() -> liberar el SDK/dispositivo
-    ...
-```
+## Seleccionar una impresora de etiquetas e imprimir
 
-Las llamadas se realizan en un hilo de lectura. `read_card` debe respetar el
-timeout y lanzar una excepción si pierde la conexión. El puente debe proporcionar
-el texto exacto usando reglas de conversión confirmadas. La aplicación valida
-ese texto antes de mostrarlo. No se distribuye un puente ficticio: completar
-esta integración depende del SDK/protocolo y la prueba del equipo concreto.
+1. Instalar el driver oficial de una impresora compatible con TSPL en Windows
+   y conectar la impresora (por ejemplo, una TSC TE200 por USB).
+2. Configurar/calibrar papel, gap y ribbon con la utilidad del fabricante según el material.
+3. Pulsar **Actualizar impresoras** y seleccionar su cola de Windows. Si hay
+   una única cola con `TE200` en su nombre, se preselecciona. Opcionalmente fijar
+   su nombre exacto en `PRINTER_NAME` de `config.py`.
+4. Leer una llave o pegar un valor manual. Revisar la vista previa y pulsar
+   **Imprimir**: la etiqueta contiene únicamente el texto de la vista previa.
 
-## Seleccionar la TSC TE200
+El nombre de la cola puede ser cualquiera. El envío RAW requiere que la
+impresora entienda TSPL; instalar un driver no agrega ese lenguaje a modelos
+que no lo admiten.
 
-1. Instalar el driver oficial de TSC, conectar por USB y comprobar en Windows
-   que la cola está disponible. Calibrar etiqueta/gap y configurar papel/ribbon
-   con la utilidad de TSC según el material.
-2. Listar los nombres exactos:
-
-   ```powershell
-   .\.venv\Scripts\python.exe main.py --list-printers
-   ```
-
-3. Elegir la cola en **Impresora Windows**. **Actualizar impresoras** vuelve a
-   enumerarlas. Si hay una única cola con `TE200` en el nombre se preselecciona.
-   Opcionalmente fijar el nombre exacto en `PRINTER_NAME` de `config.py`.
-
-`printer.py` genera bytes ASCII TSPL y usa `OpenPrinter`, `StartDocPrinter` con
-`RAW`, `StartPagePrinter`, `WritePrinter`, `EndPagePrinter`, `EndDocPrinter` y
-`ClosePrinter`. Gestiona escrituras parciales y aborta el documento si falla.
-No imprime mediante el renderizado GDI del driver.
-
-Windows puede conservar una cola instalada aun con USB desconectado. Se rechazan
-estados de error conocidos, pero el spooler puede aceptar y retener trabajos
-sin detectar inmediatamente la desconexión. **«Windows aceptó el trabajo» no
-confirma impresión física.** Ante un fallo, revisar la cola antes de reintentar
-para evitar duplicados. La aplicación no reimprime automáticamente.
-
-### Tamaño y TSPL
-
-Editar `LABEL` en `config.py`: ancho, alto, gap en milímetros; X/Y en puntos;
-fuente bitmap `1` a `8`; escala horizontal/vertical de `1` a `10`. Los valores
-50×30 mm, gap 2 mm y X/Y 30 son iniciales ajustables. La TE200 tiene 203 dpi.
-Comprobar que el texto quepa en el material, especialmente con códigos largos
-o escalas grandes. La vista previa representa **el contenido textual**, no la
-posición ni una simulación a escala.
-
-Ejemplo generado por defecto:
-
-```text
-SIZE 50 mm,30 mm
-GAP 2 mm,0 mm
-DIRECTION 1
-REFERENCE 0,0
-CLS
-TEXT 30,30,"3",0,1,1,"01025:65874"
-PRINT 1,1
-```
-
-Se envía con CRLF y sin `END`: `PRINT 1,1` imprime una etiqueta; no estamos
-declarando un programa BASIC que necesite `END`. El único texto dibujado es
-`01025:65874`, sin títulos, códigos de barras ni prefijos.
-
-## Probar lectura sin imprimir
-
-Iniciar `main.py`, configurar el lector como se indicó y acercar una tarjeta.
-Comprobar **Site Code = 01025**, **Card Code = 65874** y vista previa
-**01025:65874**. No presionar **Imprimir**: leer nunca envía un trabajo.
-Una lectura inválida borra la vista previa para evitar imprimir el valor anterior.
-
-## Probar impresión con un valor manual, sin lector
+Para listar las colas sin abrir la interfaz:
 
 ```powershell
-.\.venv\Scripts\python.exe main.py --manual
+.\.venv\Scripts\python.exe main.py --list-printers
 ```
 
-También se puede marcar **Modo de prueba manual (sin lector)** en la ventana.
-Escribir o pegar `01025:65874` en **Lectura / valor manual**. Comprobar ambos
-campos y la vista previa, seleccionar la TSC TE200 y pulsar **Imprimir**. No se
-exige la presencia del lector. El botón **Limpiar** vacía la captura y los campos.
+La impresión genera bytes TSPL ASCII y los envía con `pywin32` usando
+`OpenPrinter`, `StartDocPrinter` con tipo `RAW`, `StartPagePrinter`,
+`WritePrinter`, `EndPagePrinter`, `EndDocPrinter` y `ClosePrinter`.
+Gestiona escrituras parciales y aborta el documento si falla.
 
-Para generar TSPL sin imprimir ni depender de Windows:
+**Windows aceptó el trabajo** confirma el envío a la cola, no la salida física.
+Windows puede mantener una cola disponible con USB desconectado. Se rechazan
+estados de error conocidos; revisar la cola y la impresora antes de reintentar
+para evitar duplicados. No hay reintentos automáticos.
 
-```powershell
-.\.venv\Scripts\python.exe -c "from printer import build_tspl; print(build_tspl('01025:65874').decode('ascii'))"
-```
+### Configurar etiqueta y corregir texto cortado / saltos
 
-Entradas como `01025:`, `:65874`, `1:2:3`, letras, espacios, dígitos Unicode o
-saltos de línea en el valor manual son inválidas. Los terminadores de transporte
-se eliminan únicamente en los adaptadores de lectura, antes de validar.
+En el ejecutable, pulsar **Configurar etiqueta**. No hace falta editar Python
+ni reinstalar para cambiar las medidas. Indicar:
+
+La versión 1.1.0 parte del rollo confirmado por el usuario: **25 mm de ancho ×
+12 mm de alto, separación de 3 mm, TE200 a 203 dpi**. Usa fuente 2, escala 1×1
+y posición X=34, Y=38 puntos para centrar el código habitual de 11 caracteres.
+Esos valores se pueden ajustar si cambia el rollo.
+
+- **Ancho** del adhesivo de izquierda a derecha, en mm (sin el soporte).
+- **Alto** del adhesivo en el sentido de avance del rollo, sin la separación.
+- **Separación / GAP** entre dos adhesivos, en mm.
+- **Resolución** real del equipo: la TE200 usa **203 dpi**, equivalentes a
+  8 puntos por mm. Los equipos de 300 dpi usan 12 puntos por mm.
+- **Posición X/Y** en puntos desde el origen del texto; fuente y escalas.
+- **Orientación**: `0` normal (predeterminada), `1` invertida.
+
+Los ajustes se guardan por usuario en
+`%LOCALAPPDATA%\TarjetasYEtiquetas\label.json`, fuera de Program Files. Se
+conservan al cerrar y al actualizar el programa; no requieren administrador.
+Se admiten coma o punto decimal en las medidas. Un archivo inválido se informa
+y se reemplaza solo al guardar nuevos valores válidos desde el diálogo.
+
+Antes de imprimir, la aplicación estima el tamaño del texto con las fuentes
+bitmap TSPL2. Si queda fuera del ancho o alto configurados, cancela el envío
+y pide reducir fuente/escala o ajustar posición/medidas. No recorta ni omite
+el Site Code para hacerlo caber. La vista previa principal sigue mostrando
+el contenido textual, no un plano a escala.
+
+Cada trabajo envía las medidas elegidas, orientación sin espejo, origen 0,0,
+SHIFT 0,0 y OFFSET 0, para evitar heredar desplazamientos del trabajo anterior.
+Se envía una sola etiqueta mediante `PRINT 1,1`, con CRLF y sin `END` porque
+no se está declarando un programa BASIC. El driver no corrige las dimensiones
+del TSPL RAW: las medidas de este diálogo deben coincidir con el rollo.
+
+Si aparecen etiquetas en blanco entre impresiones:
+
+1. Medir el adhesivo y el espacio por separado y corregir los ajustes.
+2. En la utilidad de TSC, seleccionar el sensor **GAP** y calibrarlo para ese
+   rollo. La calibración puede avanzar varias etiquetas; no se ejecuta
+   automáticamente en cada impresión.
+3. Pulsar **FEED** en la impresora: debe avanzar una etiqueta y detenerse en
+   la separación. Si también salta etiquetas, revisar calibración, guías y sensor.
+4. Probar una sola impresión y ajustar X/Y si hace falta. No aumentar el alto
+   para corregir una posición desplazada.
+
+La validación de software no puede detectar un rollo de otras medidas ni una
+calibración incorrecta; la comprobación física sigue siendo necesaria.
+
+## Adaptadores avanzados y diagnóstico opcional
+
+El modo normal es `READER.mode="keyboard"`. No necesita configuración USB.
+Para otras unidades/protocolos se conservan adaptadores separados en `reader.py`:
+
+- `auto`: enumera HID/COM por VID/PID y exige una interfaz no ambigua.
+- `serial`: puerto COM, velocidad configurable, 8N1, timeout de 200 ms.
+- `hid_text`: reportes ASCII documentados, tamaño/offset configurables, sin
+  comandos propietarios de activación. No interpreta HID binario.
+- `sdk`: módulo puente propio para un SDK documentado por el fabricante.
+- `manual`: no inicia adaptadores; se sigue pudiendo escribir o pegar.
+
+Solo para esos casos, ejecutar `main.py --diagnose` y comparar el inventario
+con/sin dispositivo. Obtener IDs reales en Administrador de dispositivos;
+configurar `vendor_id`, `product_id` y, de ser necesario, `serial_number`,
+`interface_number` o `port`. No usar valores de ejemplo ni cambiar drivers
+con Zadig. Serie/HID texto esperan tramas ASCII terminadas en CR, LF o CRLF,
+con límite `max_frame_length`; HID elimina el offset inicial y NUL final.
+
+Para un SDK, configurar `sdk_module` con un módulo del proyecto que exponga
+`open_reader(config)`. Debe devolver un objeto con
+`read_card(timeout_ms=200)` (texto decimal, Site:Card o `None`) y `close()`.
+Las llamadas ocurren en un hilo. Respetar el timeout y lanzar una excepción
+ante desconexión. No se incluye SDK propietario ni se presupone que el NetSDK
+para controladores de red sirva para el emisor USB.
 
 ## Arquitectura y pruebas
 
-- `main.py`: inicio y comandos de diagnóstico/listado.
-- `gui.py`: widgets, modo manual, vista previa; eventos de E/S por cola al hilo Tk.
-- `reader.py`: validación, inventario, selección y adaptadores independientes.
-- `printer.py`: TSPL y spooler de Windows.
-- `config.py`: parámetros inmutables del lector, etiqueta y cola.
-- `tests/`: pruebas sin hardware del formato, detección y spooler simulado.
+- `main.py`: inicio y opciones de diagnóstico/listado.
+- `gui.py`: Tkinter, captura por teclado, vista previa y eventos de E/S por cola.
+- `reader.py`: conversión del UID, validación y adaptadores separados.
+- `printer.py`: generación TSPL y cola RAW de Windows.
+- `config.py`: parámetros del lector, etiqueta y cola.
+- `tests/`: validación, conversión, lectura, lógica GUI y spooler simulado.
+
+Ejecutar desde la carpeta principal del proyecto:
 
 ```powershell
 .\.venv\Scripts\python.exe -m compileall -q main.py gui.py reader.py printer.py config.py tests
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Las pruebas simuladas verifican los bytes y errores del spooler; no reemplazan
-la prueba de la DLL, USB, GUI Windows ni de la salida física. Dependiendo del
-entorno, las pruebas de GUI requieren una pantalla y Tcl/Tk instalados.
+Las pruebas de lógica GUI usan variables Tcl reales sin necesitar pantalla.
+Las pruebas simuladas no sustituyen la lectura física, la GUI en Windows ni
+la impresión en la TE200. La prueba física de impresión está pendiente.
 
-### Verificación realizada en este desarrollo
+Fuentes de los dispositivos:
+[ficha oficial ASM100](https://materialfile.dahuasecurity.com/uploads/cpq/prm-os-srv-res/smart/datasheetzipfiles/DHI-ASM100_datasheet_20241101.pdf),
+[configuración DahuaWiki](https://dahuawiki.com/Access_Control/How_To_Setup_DHI_ASM100),
+[manual oficial TE200](https://fs.tscprinters.com/system/files/31-0650003-00_te200_user_manual_en_c.pdf),
+[manuales TSPL](https://apac.tscprinters.com/en/downloads).
+La ficha USB del ASM100 no especifica su protocolo; la entrada por teclado y
+la conversión descritas aquí se basan en la prueba y el ejemplo del usuario.
 
-En Linux se verificó la sintaxis de todos los archivos Python, se ejecutaron 25
-pruebas automatizadas exitosas y el diagnóstico real con `hidapi`/`pyserial`
-instalados devolvió listas HID/COM vacías, sin errores. Se comprobó además la
-generación exacta de TSPL con `01025:65874` y el mensaje al intentar listar colas
-fuera de Windows. No fue posible abrir Tkinter por falta de pantalla gráfica;
-quedan pendientes la GUI en Windows, el dispositivo ASM100 y la salida física
-de la TE200.
+## Generar el instalador (desarrollo)
+
+PyInstaller debe compilar en Windows x64; no se genera un ejecutable Windows
+con PyInstaller desde Linux. El workflow `.github/workflows/windows-installer.yml`
+se ejecuta en cada PR hacia `main`, al actualizar `main` y manualmente desde
+Actions una vez que el workflow está en la rama predeterminada. Publica el
+instalador como artefacto durante 90 días; descargarlo y conservarlo antes de
+su vencimiento. No crea una release ni cambia `main` automáticamente.
+
+Para compilar localmente en Windows, instalar Inno Setup 6 y ejecutar desde
+la raíz del repositorio:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+.\scripts\build_windows.ps1 -PythonExe .\.venv\Scripts\python.exe
+```
+
+El resultado queda en `dist/installer/`. La carpeta de distribución está en
+`dist/TarjetasYEtiquetas/`. `APP_VERSION` en `config.py` determina la versión.
+Los valores predeterminados de Python se integran en el bundle; editar
+`config.py` requiere recompilar. Los ajustes de etiqueta se editan y guardan
+desde la GUI sin recompilar.
+
+El workflow comprueba sintaxis y pruebas en Windows, compila con PyInstaller,
+genera el instalador con Inno Setup, lo instala en una carpeta temporal y
+comprueba el acceso directo. Luego ejecuta el binario instalado con una opción
+interna de autoprueba para verificar Tkinter, extensiones y conversión del UID
+sin enviar trabajos a la impresora. Esto no sustituye la prueba física de la TE200.

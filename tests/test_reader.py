@@ -10,7 +10,7 @@ from reader import Reader
 
 class ReaderLoopTests(unittest.TestCase):
     def setUp(self):
-        self.config = ReaderConfig(vendor_id=1, product_id=2)
+        self.config = ReaderConfig(mode="auto", vendor_id=1, product_id=2)
         self.events = []
         self.reader = Reader(self.config, self.collect)
         self.devices = {"hid": [], "serial": [], "errors": []}
@@ -85,14 +85,13 @@ class ReaderLoopTests(unittest.TestCase):
         source.read_card.assert_called_with(timeout_ms=200)
         source.close.assert_called_once()
 
-    def test_keyboard_removal_detected(self):
-        self.devices["hid"] = [dict(vendor_id=1, product_id=2, usage_page=1, usage=6)]
-        empty = dict(hid=[], serial=[], errors=[])
-        with patch("reader.inventory", side_effect=[self.devices, empty]), patch.object(
-                self.reader.stop_event, "wait", return_value=False):
+    def test_default_keyboard_never_enumerates_usb_or_requires_ids(self):
+        self.reader.config = ReaderConfig()
+        with patch("reader.inventory", side_effect=AssertionError("No debe buscar USB")) as scan:
             self.reader._run()
+        scan.assert_not_called()
         self.assertEqual(self.events[0][0], "keyboard")
-        self.assertEqual(self.events[-1][0], "error")
+        self.assertEqual(len(self.events), 1)
 
 
 if __name__ == "__main__":
